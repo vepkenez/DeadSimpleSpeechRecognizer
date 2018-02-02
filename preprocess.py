@@ -5,7 +5,7 @@ from keras.utils import to_categorical
 import numpy as np
 from tqdm import tqdm
 
-DATA_PATH = "./data/"
+DATA_PATH = "./damon-trainingdata-clean/"
 
 
 # Input: Folder Path
@@ -19,7 +19,13 @@ def get_labels(path=DATA_PATH):
 # Handy function to convert wav2mfcc
 def wav2mfcc(file_path, max_len=11):
     wave, sr = librosa.load(file_path, mono=True, sr=None)
+    return process_mfcc(wave, max_len=max_len)
+
+def process_mfcc(np_data, max_len=11):
+    wave = np_data
+    wave, index = librosa.effects.trim(wave)
     wave = wave[::3]
+    
     mfcc = librosa.feature.mfcc(wave, sr=16000)
 
     # If maximum length exceeds mfcc lengths then pad the remaining ones
