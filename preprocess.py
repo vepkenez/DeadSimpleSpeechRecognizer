@@ -5,7 +5,7 @@ from keras.utils import to_categorical
 import numpy as np
 from tqdm import tqdm
 
-DATA_PATH = "./damon-trainingdata-clean/"
+DATA_PATH = "./reeps_data_clips/"
 
 
 # Input: Folder Path
@@ -21,24 +21,12 @@ def wav2mfcc(file_path, max_len=11):
     wave, sr = librosa.load(file_path, mono=True, sr=None)
     return process_mfcc(wave, max_len=max_len)
 
-def process_mfcc(np_data, max_len=11):
-    wave = np_data
-    wave, index = librosa.effects.trim(wave)
-    wave = wave[::3]
+def process_mfcc(y, max_len=11):
+    # y = librosa.util.fix_length(y, 44100)
+    out = librosa.feature.melspectrogram(
+        y=y, sr=44100, n_mels=29, fmax=8000)
+    return out
     
-    mfcc = librosa.feature.mfcc(wave, sr=16000)
-
-    # If maximum length exceeds mfcc lengths then pad the remaining ones
-    if (max_len > mfcc.shape[1]):
-        pad_width = max_len - mfcc.shape[1]
-        mfcc = np.pad(mfcc, pad_width=((0, 0), (0, pad_width)), mode='constant')
-
-    # Else cutoff the remaining parts
-    else:
-        mfcc = mfcc[:, :max_len]
-    
-    return mfcc
-
 
 def save_data_to_array(path=DATA_PATH, max_len=11):
     labels, _, _ = get_labels(path)
@@ -54,7 +42,7 @@ def save_data_to_array(path=DATA_PATH, max_len=11):
         np.save(label + '.npy', mfcc_vectors)
 
 
-def get_train_test(split_ratio=0.6, random_state=42):
+def get_train_test(split_ratio=0.9, random_state=42):
     # Get available labels
     labels, indices, _ = get_labels(DATA_PATH)
 
@@ -85,10 +73,8 @@ def prepare_dataset(path=DATA_PATH):
 
         for wavfile in data[label]['path']:
             wave, sr = librosa.load(wavfile, mono=True, sr=None)
-            # Downsampling
-            wave = wave[::3]
-            mfcc = librosa.feature.mfcc(wave, sr=16000)
-            vectors.append(mfcc)
+            
+            vectors.append(process_mfcc(wave))
 
         data[label]['mfcc'] = vectors
 

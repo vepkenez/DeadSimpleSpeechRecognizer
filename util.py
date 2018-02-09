@@ -7,6 +7,9 @@ import soundfile as sf
 import tempfile
 import os
 
+def load(filepath, sr=44100):
+    return librosa.load(filepath, sr=44100)
+
 def get_labels(path=None):
     path = path or os.getcwd()
     labels = os.listdir(path)
@@ -14,36 +17,33 @@ def get_labels(path=None):
     return labels, label_indices
 
 def process(filepath):
-    f, sr = librosa.load(filepath, sr=48000)
+    f, sr = load(filepath)
     max16val = np.iinfo(np.int16).max
 
     return ( 
-        librosa.resample( # 16000 hz
             librosa.util.fix_length( # pad
                 librosa.effects.trim(  # remove silence
-                    librosa.to_mono(f) # mono
+                    librosa.to_mono(f), # mono
+                    top_db=30
                 )[0], 
-            48000
-            ), 
-        48000, 
-        16000
-        ) * max16val
-    ).astype(np.int16), 16000
+            44100
+            ) * max16val
+    ).astype(np.int16), 44100
 
 
 def create_graphs(y, sr):
   
     D = librosa.amplitude_to_db(librosa.stft(y), ref=np.max)
     plt.subplot(2, 1, 1)
-    librosa.display.specshow(D, y_axis='linear')
-    plt.colorbar(format='%+2.0f dB')
+    
+    librosa.display.specshow(D, y_axis='log', x_axis='time')
     plt.title('Linear spectrogram')
 
     # Or on a logarithmic scale
     plt.subplot(2, 1, 2)
-    librosa.display.specshow(D, y_axis='log')
-    plt.colorbar(format='%+2.0f dB')
-    plt.title('Log spectrogram')
+    D = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=40)
+    librosa.display.specshow(D, x_axis='time')
+    plt.title('MFCC')
     return plt
 
 
@@ -80,6 +80,8 @@ def process_set(path=None):
 
                 # save pics
                 pic = create_graphs(data, sr)
+                if os.path.exists(outpic):
+                    os.remove(outpic)
                 pic.savefig(outpic)
                 pic.close()
 
@@ -118,3 +120,17 @@ def clean(path):
         print ("deleted {}".format(deleted))
                     
 
+def generate_graphs_for_directory(dirpath):
+    wavs = [os.path.join(dirpath, w) for w in os.listdir(dirpath) if w.endswith('.wav')]
+    for w in tqdm(wavs):
+        g = None
+        try:
+            g = create_graphs(*load(w))
+            name = os.path.basename(w)
+            gname = name.replace('.wav', '.png')
+            g.savefig('graphs/'+gname)
+            g.close()
+        except:
+            print ('error in:', w)
+            if g:
+                g.close()
